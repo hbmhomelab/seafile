@@ -1,5 +1,5 @@
 services:
-  mysql:
+  db:
     image: mariadb:10.11
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWD}
