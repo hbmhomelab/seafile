@@ -34,13 +34,19 @@ services:
       - ./conf:/shared/seafile/conf
     environment:
       - DB_HOST=db
-      - DB_ROOT_PASSWD=${MYSQL_ROOT_PASSWD}
+      - DB_ROOT_PASSWD=${MYSQL_ROOT_PASSWORD}
       - TIME_ZONE=Etc/UTC
       - SEAFILE_ADMIN_EMAIL=${SEAFILE_ADMIN_EMAIL}
       - SEAFILE_ADMIN_PASSWORD=${SEAFILE_ADMIN_PASSWORD}
       - SEAFILE_SERVER_LETSENCRYPT=false
       - FORCE_HTTPS_IN_CONF=true
       - SEAFILE_SERVER_HOSTNAME=${TAILSCALE_HOSTNAME}.${TAILSCALE_TAILNET}.ts.net
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
     depends_on:
       memcached:
         condition: service_started
