@@ -6,6 +6,11 @@ SEAFILE_DIR="/opt/seafile"
 STARTUP_DIR="${SEAFILE_DIR}/seafile-server-latest"
 SEAHUB_SETTINGS="${SEAFILE_DIR}/conf/seahub_settings.py"
 
+# Make a backup copy of the seahub settings file.
+
+TIMESTAMP=`date '+%Y%M%dT%H%M'`
+cp -f $SEAHUB_SETTINGS "${SEAHUB_SETTINGS}.${TIMESTAMP}"
+
 # List of settings that should be added to seahub_settings.py from the environment.
 
 SEAHUB_SETTINGS_VARS="CSRF_TRUSTED_ORIGINS EMAIL_HOST EMAIL_PORT EMAIL_USE_TLS \
