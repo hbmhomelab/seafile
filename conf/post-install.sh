@@ -39,12 +39,12 @@ done
 
 for VAR in $SEAHUB_QUOTED_SETTINGS_VARS
 do
-  if grep "^${VAR}" $SEAHUB_SETTINGS > /dev/null 2>&1
+  if grep -w "^${VAR}" $SEAHUB_SETTINGS > /dev/null 2>&1
   then
     VALUE=$(echo ${!VAR} | sed -E 's/([\/&])/\\\1/g')
-    sed -i -e "/^${VAR}\s*=/s/\s*=.*\$/ = \"${VALUE}\"/" $SEAHUB_SETTINGS
+    sed -i -e "/^${VAR}\s*=/s/\s*=.*\$/ = '${VALUE}'/" $SEAHUB_SETTINGS
   else
-    echo "${VAR} = \"${!VAR}\"" >> $SEAHUB_SETTINGS
+    echo "${VAR} = '${!VAR}'" >> $SEAHUB_SETTINGS
   fi
 done
 
