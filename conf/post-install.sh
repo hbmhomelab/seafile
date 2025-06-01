@@ -27,8 +27,7 @@ for VAR in $SEAHUB_SETTINGS_VARS
 do
   if grep "^${VAR}" $SEAHUB_SETTINGS > /dev/null 2>&1
   then
-    VALUE=`echo "${!VAR}" | sed 's|/|\\\/|g'`
-    sed -i -e "/^${VAR}\s*=/s/\s*=.*\$/ = ${VALUE}/" $SEAHUB_SETTINGS
+    sed -i -e "/^${VAR}\s*=/s/\s*=.*\$/ = ${!VAR//[\\\/]/\\&}/" $SEAHUB_SETTINGS
   else
     echo "${VAR} = ${!VAR}" >> $SEAHUB_SETTINGS
   fi
