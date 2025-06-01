@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set noglob
+
 # Location of the configuration files.
 
 SEAFILE_DIR="/opt/seafile"
@@ -13,8 +15,9 @@ cp -f $SEAHUB_SETTINGS "${SEAHUB_SETTINGS}.${TIMESTAMP}"
 
 # List of settings that should be added to seahub_settings.py from the environment.
 
-SEAHUB_SETTINGS_VARS="CSRF_TRUSTED_ORIGINS EMAIL_HOST EMAIL_PORT EMAIL_USE_TLS \
-  EMAIL_HOST_USER EMAIL_HOST_PASSWORD DEFAULT_FROM_EMAIL SERVER_EMAIL"
+SEAHUB_SETTINGS_VARS="CSRF_TRUSTED_ORIGINS EMAIL_PORT EMAIL_USE_TLS"
+SEAHUB_QUOTED_SETTINGS_VARS="EMAIL_HOST EMAIL_HOST_USER EMAIL_HOST_PASSWORD \
+  DEFAULT_FROM_EMAIL SERVER_EMAIL"
 
 # Additional variables that can be derived from environment variables.
 
@@ -27,9 +30,21 @@ for VAR in $SEAHUB_SETTINGS_VARS
 do
   if grep "^${VAR}" $SEAHUB_SETTINGS > /dev/null 2>&1
   then
-    sed -i -e "/^${VAR}\s*=/s/\s*=.*\$/ = ${!VAR//[\\\/]/\\&}/" $SEAHUB_SETTINGS
+    VALUE=$(echo ${!VAR} | sed -E 's/([\/&])/\\\1/g')
+    sed -i -e "/^${VAR}\s*=/s/\s*=.*\$/ = ${VALUE}/" $SEAHUB_SETTINGS
   else
     echo "${VAR} = ${!VAR}" >> $SEAHUB_SETTINGS
+  fi
+done
+
+for VAR in $SEAHUB_QUOTED_SETTINGS_VARS
+do
+  if grep "^${VAR}" $SEAHUB_SETTINGS > /dev/null 2>&1
+  then
+    VALUE=$(echo ${!VAR} | sed -E 's/([\/&])/\\\1/g')
+    sed -i -e "/^${VAR}\s*=/s/\s*=.*\$/ = \"${VALUE}\"/" $SEAHUB_SETTINGS
+  else
+    echo "${VAR} = \"${!VAR}\"" >> $SEAHUB_SETTINGS
   fi
 done
 
