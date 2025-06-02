@@ -1,22 +1,27 @@
+volumes:
+  tailscale_state:
+  seafile_db:
+  seafile_data:
+
 services:
-  mysql:
+  db:
     image: mariadb:10.11
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_LOG_CONSOLE=true
       - MARIADB_AUTO_UPGRADE=1
     volumes:
-      - /opt/seafile-mysql/db:/var/lib/mysql
-    network_mode: service:tailscale
-    depends_on:
-      tailscale:
-        condition: service_healthy
-        restart: true
+      - seafile_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      start_period: 120s
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   memcached:
     image: memcached:1.6.18
     entrypoint: memcached -m 256
-    network_mode: service:tailscale
     depends_on:
       tailscale:
         condition: service_healthy
@@ -24,24 +29,31 @@ services:
 
   seafile:
     image: seafileltd/seafile-mc:11.0-latest
-    container_name: seafile
     volumes:
-      - /opt/seafile-data:/shared
+      - seafile_data:/shared
+      - ./conf:/shared/seafile/conf
     environment:
-      - NON_ROOT=true
-      - DB_HOST=seafile-mysql
-      - DB_ROOT_PASSWD=${MYSQL_ROOT_PASSWD}
+      - DB_HOST=db
+      - DB_ROOT_PASSWD=${MYSQL_ROOT_PASSWORD}
       - TIME_ZONE=Etc/UTC
       - SEAFILE_ADMIN_EMAIL=${SEAFILE_ADMIN_EMAIL}
       - SEAFILE_ADMIN_PASSWORD=${SEAFILE_ADMIN_PASSWORD}
       - SEAFILE_SERVER_LETSENCRYPT=false
       - FORCE_HTTPS_IN_CONF=true
       - SEAFILE_SERVER_HOSTNAME=${TAILSCALE_HOSTNAME}.${TAILSCALE_TAILNET}.ts.net
+      - SITE_TITLE=${SITE_TITLE}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
     depends_on:
-      db:
-        condition: service_started
       memcached:
         condition: service_started
+      db:
+        condition: service_healthy
+        restart: true
       tailscale:
         condition: service_healthy
         restart: true
@@ -59,17 +71,12 @@ services:
     volumes:
       - tailscale_state:/var/lib/tailscale
       - ./ts-serve.json:/config/ts-serve.json
-    networks:
-      default:
-        aliases:
-          - seafile-memcached
-          - seafile-mysql
     healthcheck:
       test: wget -q --tries=1 --spider http://127.0.0.1:9002/healthz || exit 1
-      interval: 20s
-      retries: 2
-      start_period: 20s
-      timeout: 10s
+      start_period: 120s
+      interval: 10s
+      timeout: 5s
+      retries: 5
     labels:
       - deunhealth.restart.on.unhealthy=true
     restart: on-failure
@@ -83,6 +90,3 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     network_mode: none
     restart: always
-
-volumes:
-  tailscale_state:
