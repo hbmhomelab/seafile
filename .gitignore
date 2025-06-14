@@ -17,3 +17,5 @@ tags
 
 ## Application
 .env
+conf/*
+!conf/post-install.sh

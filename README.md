@@ -1,0 +1,26 @@
+# Seafile Tailscale Stack
+
+Bring the stack up with:
+
+```
+docker compose up -d
+```
+
+Follow the initial startup with:
+
+```
+docker compose logs -f
+```
+
+Once Tailscale prompts for a login and displays a URL, copy it into a browser,
+authenticate and click connect. Alternatively, you can run:
+
+```
+docker compose exec tailscale tailscale up
+```
+
+Once the stack is fully up, run the following:
+
+```
+docker compose exec seafile conf/post-install.sh
+```
