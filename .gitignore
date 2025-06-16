@@ -17,5 +17,6 @@ tags
 
 ## Application
 .env
-conf/*
+backup/
+conf/
 !conf/post-install.sh
