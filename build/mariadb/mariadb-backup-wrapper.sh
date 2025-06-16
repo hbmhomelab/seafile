@@ -78,7 +78,36 @@ if [ -z ${DATABASES:+z} ]
 then
   echo "Warning: no non-empty databases found to backup"
 else
-  mkdir $TARGET_DIR && mariadb-backup -u root --password="${MARIADB_ROOT_PASSWORD}" --backup \
-    --databases="${DATABASES}" \
-    --target-dir="${TARGET_DIR}"
+  mkdir $TARGET_DIR \
+    && mariadb-backup -u root --password="${MARIADB_ROOT_PASSWORD}" --backup \
+      --databases="${DATABASES}" \
+      --target-dir="${TARGET_DIR}" \
+    && mariadb-backup --prepare --export \
+      --target-dir="${TARGET_DIR}"
 fi
+
+for DATABASE in $DATABASES
+do
+  DATABASE_DIR="${TARGET_DIR}/${DATABASE}"
+  if [ -d $DATABASE_DIR ]
+  then
+    DISCARD_SQL="${DATABASE_DIR}/discard_tablespaces.sql"
+    IMPORT_SQL="${DATABASE_DIR}/import_tablespaces.sql"
+    RESTORE_SCRIPT="${DATABASE_DIR}/restore.sh"
+    RESTORE_DIR="/var/lib/mysql/${DATABASE}"
+    TABLES=$(mariadb -u root --password="${MARIADB_ROOT_PASSWORD}" -s -e \
+      "SELECT CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) FROM information_schema.TABLES WHERE TABLE_SCHEMA LIKE '${DATABASE}'" | xargs)
+    touch $DISCARD_SQL $IMPORT_SQL
+    for TABLE in $TABLES
+    do
+      echo "ALTER TABLE ${TABLE} DISCARD TABLESPACE;" >> $DISCARD_SQL 
+      echo "ALTER TABLE ${TABLE} IMPORT TABLESPACE;" >> $IMPORT_SQL 
+    done
+    echo '#!/bin/sh' > $RESTORE_SCRIPT
+    echo 'mariadb -u root --password="${MARIADB_ROOT_PASSWORD}" < ./discard_tablespaces.sql' >> $RESTORE_SCRIPT
+    echo 'cp *.cfg *.frm *.ibd' $RESTORE_DIR >> $RESTORE_SCRIPT
+    echo 'chown -R mysql:mysql' $RESTORE_DIR >> $RESTORE_SCRIPT
+    echo 'mariadb -u root --password="${MARIADB_ROOT_PASSWORD}" < ./import_tablespaces.sql' >> $RESTORE_SCRIPT
+    chmod 755 $RESTORE_SCRIPT
+  fi
+done
