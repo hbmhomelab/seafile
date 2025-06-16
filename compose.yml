@@ -5,15 +5,22 @@ volumes:
 
 services:
   db:
-    image: mariadb:10.11
+    build:
+      context: ./build/mariadb/
+      args:
+        - version=${MARIADB_VERSION:-latest}
+        - uid=${UID:-1000}
+        - gid=${GID:-1000}
+        - cron=${MARIADB_BACKUP_CRON:-* * * 12 18}
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_LOG_CONSOLE=true
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+      - MARIADB_BACKUP_DATABASES=ccnet_db seafile_db seahub_db
       - MARIADB_AUTO_UPGRADE=1
     volumes:
       - seafile_db:/var/lib/mysql
+      - ./backup:/backup
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MARIADB_ROOT_PASSWORD}"]
       start_period: 120s
       interval: 10s
       timeout: 5s
@@ -36,7 +43,7 @@ services:
       - ./conf:/shared/seafile/conf
     environment:
       - DB_HOST=db
-      - DB_ROOT_PASSWD=${MYSQL_ROOT_PASSWORD}
+      - DB_ROOT_PASSWD=${MARIADB_ROOT_PASSWORD}
       - TIME_ZONE=Etc/UTC
       - SEAFILE_ADMIN_EMAIL=${SEAFILE_ADMIN_EMAIL}
       - SEAFILE_ADMIN_PASSWORD=${SEAFILE_ADMIN_PASSWORD}
