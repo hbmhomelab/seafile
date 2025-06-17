@@ -1,9 +1,9 @@
 ARG version=latest
 FROM mariadb:$version
 
-ARG cron
-ARG uid
-ARG gid
+ARG cron=15 0 * * *
+ARG uid=1000
+ARG gid=1000
 ARG password
 
 COPY my.cnf /root/.my.cnf

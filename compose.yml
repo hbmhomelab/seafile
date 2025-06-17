@@ -8,13 +8,13 @@ services:
     build:
       context: ./build/mariadb/
       args:
-        - version=${MARIADB_VERSION:-latest}
-        - uid=${MARIADB_BACKUP_UID:-1000}
-        - gid=${MARIADB_BACKUP_GID:-1000}
-        - cron=${MARIADB_BACKUP_CRON:-* * * 0 15}
+        - version=$MARIADB_VERSION
+        - uid=$MARIADB_BACKUP_UID
+        - gid=$MARIADB_BACKUP_GID
+        - cron=$MARIADB_BACKUP_CRON
         - password=${MARIADB_ROOT_PASSWORD}
     environment:
-      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+      - MARIADB_ROOT_PASSWORD
       - MARIADB_AUTO_UPGRADE=1
       - MARIADB_BACKUP_DATABASES=ccnet_db seafile_db seahub_db
       - MARIADB_BACKUP_KEEP=${MARIADB_BACKUP_KEEP:-7}
