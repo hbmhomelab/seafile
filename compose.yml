@@ -9,13 +9,14 @@ services:
       context: ./build/mariadb/
       args:
         - version=${MARIADB_VERSION:-latest}
-        - uid=${UID:-1000}
-        - gid=${GID:-1000}
-        - cron=${MARIADB_BACKUP_CRON:-* * * 12 18}
+        - uid=${MARIADB_BACKUP_UID:-1000}
+        - gid=${MARIADB_BACKUP_GID:-1000}
+        - cron=${MARIADB_BACKUP_CRON:-* * * 0 15}
     environment:
       - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
-      - MARIADB_BACKUP_DATABASES=ccnet_db seafile_db seahub_db
       - MARIADB_AUTO_UPGRADE=1
+      - MARIADB_BACKUP_DATABASES=ccnet_db seafile_db seahub_db
+      - MARIADB_BACKUP_KEEP=${MARIADB_BACKUP_KEEP:-7}
     volumes:
       - seafile_db:/var/lib/mysql
       - ./backup:/backup
@@ -50,7 +51,7 @@ services:
       - SEAFILE_SERVER_LETSENCRYPT=false
       - FORCE_HTTPS_IN_CONF=true
       - SEAFILE_SERVER_HOSTNAME=${TAILSCALE_HOSTNAME}.${TAILSCALE_TAILNET}.ts.net
-      - SITE_TITLE=${SITE_TITLE}
+      - SITE_TITLE=${SEAFILE_SITE_TITLE}
       - EMAIL_HOST=${EMAIL_HOST}
       - EMAIL_PORT=${EMAIL_PORT}
       - EMAIL_USE_TLS=${EMAIL_USE_TLS}

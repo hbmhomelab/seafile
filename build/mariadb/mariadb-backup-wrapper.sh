@@ -1,9 +1,10 @@
 #!/bin/bash
 
-set -xo pipefail
+set -x
 
-TIMESTAMP=`date '+%Y%m%dT%H'`
-TARGET_DIR="/backup/${TIMESTAMP}"
+TIMESTAMP=`date '+%Y%m%dT%H%M'`
+BACKUP_DIR="/backup"
+TARGET_DIR="${BACKUP_DIR}/${TIMESTAMP}"
 
 # Check that we have the required information in the environment.
 
@@ -74,6 +75,9 @@ else
 
 fi
 
+# Perform the backup then make the backup point-in-time consistent (prepare) and
+# create transportable tablespaces (export) for each table in each schema.
+
 if [ -z ${DATABASES:+z} ]
 then
   echo "Warning: no non-empty databases found to backup"
@@ -86,15 +90,22 @@ else
       --target-dir="${TARGET_DIR}"
 fi
 
+# Create a helper script for each schema that uses the transportable tablespaces
+# created above to recover data.
+
 for DATABASE in $DATABASES
 do
+
   DATABASE_DIR="${TARGET_DIR}/${DATABASE}"
   if [ -d $DATABASE_DIR ]
   then
+
+    # Create SQL to discard and import tablespaces for each table in the
+    # database.
+
     DISCARD_SQL="${DATABASE_DIR}/discard_tablespaces.sql"
     IMPORT_SQL="${DATABASE_DIR}/import_tablespaces.sql"
-    RESTORE_SCRIPT="${DATABASE_DIR}/restore.sh"
-    RESTORE_DIR="/var/lib/mysql/${DATABASE}"
+
     TABLES=$(mariadb -u root --password="${MARIADB_ROOT_PASSWORD}" -s -e \
       "SELECT CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) FROM information_schema.TABLES WHERE TABLE_SCHEMA LIKE '${DATABASE}'" | xargs)
     touch $DISCARD_SQL $IMPORT_SQL
@@ -103,11 +114,38 @@ do
       echo "ALTER TABLE ${TABLE} DISCARD TABLESPACE;" >> $DISCARD_SQL 
       echo "ALTER TABLE ${TABLE} IMPORT TABLESPACE;" >> $IMPORT_SQL 
     done
+
+    # Create a script that discards the schema tablespaces, copies the backed up
+    # transportable tablespaces in and imports them.
+
+    RESTORE_SCRIPT="${DATABASE_DIR}/restore.sh"
+    RESTORE_DIR="/var/lib/mysql/${DATABASE}"
+
     echo '#!/bin/sh' > $RESTORE_SCRIPT
     echo 'mariadb -u root --password="${MARIADB_ROOT_PASSWORD}" < ./discard_tablespaces.sql' >> $RESTORE_SCRIPT
     echo 'cp *.cfg *.frm *.ibd' $RESTORE_DIR >> $RESTORE_SCRIPT
     echo 'chown -R mysql:mysql' $RESTORE_DIR >> $RESTORE_SCRIPT
     echo 'mariadb -u root --password="${MARIADB_ROOT_PASSWORD}" < ./import_tablespaces.sql' >> $RESTORE_SCRIPT
     chmod 755 $RESTORE_SCRIPT
+
   fi
 done
+
+# Check that MARIADB_BACKUP_KEEP is an integer.
+
+case "${MARIADB_BACKUP_KEEP}" in
+  ''|*[!0-9]*)
+    echo "Warning: MARIADB_BACKUP_KEEP should be an integer - setting to 0"
+    MARIADB_BACKUP_KEEP=0
+esac
+
+# If MARIADB_BACKUP_KEEP is non-zero, ensure only that number of backups are kept.
+
+if [ $MARIADB_BACKUP_KEEP -gt 0 ]
+then
+  OLD_BACKUPS=$(ls -1t $BACKUP_DIR | tail -n "+$((++MARIADB_BACKUP_KEEP))" | xargs)
+  for OLD in $OLD_BACKUPS
+  do
+    echo "Warning: removing old backup $OLD from $BACKUP_DIR"
+  done
+fi
