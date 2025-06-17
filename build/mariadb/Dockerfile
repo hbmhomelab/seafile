@@ -5,10 +5,20 @@ ARG cron
 ARG uid
 ARG gid
 
+COPY my.cnf /root/.my.cnf
+RUN echo "password=${MARIADB_ROOT_PASSWORD}" >> /root/.my.cnf
+RUN chmod 0400 /root/.my.cnf
+
 RUN groupadd -g $gid dbbackup
 RUN useradd -u $uid -g $gid -s /bin/bash -m dbbackup
 RUN mkdir /backup
 RUN chown dbbackup:dbbackup /backup
+
+COPY my.cnf /home/dbbackup/.my.cnf
+RUN echo "password=${MARIADB_ROOT_PASSWORD}" >> /home/dbbackup/.my.cnf
+RUN chmod 0400 /home/dbbackup/.my.cnf
+RUN chown dbbackup:dbbackup /home/dbbackup/.my.cnf
+
 
 COPY mariadb-backup-wrapper.sh /usr/local/bin/mariadb-backup-wrapper.sh
 RUN chmod 0755 /usr/local/bin/mariadb-backup-wrapper.sh

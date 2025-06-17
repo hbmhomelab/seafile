@@ -21,7 +21,7 @@ fi
 
 # Check that the root password works.
 
-mariadb-admin -u root --password="${MARIADB_ROOT_PASSWORD}" version &>/dev/null
+mariadb-admin version &>/dev/null
 
 if [ $? -ne 0 ]
 then
@@ -47,7 +47,7 @@ then
   # If all is specified in MARIADB_BACKUP_DATABASES or it is empty, backup
   # everything apart from the information and performance schema databases.
 
-  DATABASES=$(mariadb -u root --password="${MARIADB_ROOT_PASSWORD}" -s -e \
+  DATABASES=$(mariadb -s -e \
     "SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN ('information_schema','performance_schema') GROUP BY TABLE_SCHEMA;" | xargs )
 
 else
@@ -57,7 +57,7 @@ else
 
   for DATABASE in $MARIADB_BACKUP_DATABASES
   do
-    EXISTS=$(mariadb -u root --password="${MARIADB_ROOT_PASSWORD}" -s -e \
+    EXISTS=$(mariadb -s -e \
       "SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_SCHEMA LIKE '${DATABASE}' GROUP BY 1" | xargs)
     if [ -z ${EXISTS:+z} ]
     then
@@ -83,7 +83,7 @@ then
 else
   echo "Notice: backing up databases ${DATABASES} to ${TARGET_DIR}"
   mkdir $TARGET_DIR \
-    && mariadb-backup -u root --password="${MARIADB_ROOT_PASSWORD}" --backup \
+    && mariadb-backup --backup \
       --databases="${DATABASES}" \
       --target-dir="${TARGET_DIR}" &> $BACKUP_LOG \
     && mariadb-backup --prepare --export \
@@ -106,13 +106,13 @@ do
     DISCARD_SQL="${DATABASE_DIR}/discard_tablespaces.sql"
     IMPORT_SQL="${DATABASE_DIR}/import_tablespaces.sql"
 
-    TABLES=$(mariadb -u root --password="${MARIADB_ROOT_PASSWORD}" -s -e \
+    TABLES=$(mariadb -s -e \
       "SELECT CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) FROM information_schema.TABLES WHERE TABLE_SCHEMA LIKE '${DATABASE}'" | xargs)
     touch $DISCARD_SQL $IMPORT_SQL
     for TABLE in $TABLES
     do
-      echo "ALTER TABLE ${TABLE} DISCARD TABLESPACE;" >> $DISCARD_SQL 
-      echo "ALTER TABLE ${TABLE} IMPORT TABLESPACE;" >> $IMPORT_SQL 
+      echo "ALTER TABLE ${TABLE} DISCARD TABLESPACE;" >> $DISCARD_SQL
+      echo "ALTER TABLE ${TABLE} IMPORT TABLESPACE;" >> $IMPORT_SQL
     done
 
     # Create a script that discards the schema tablespaces, copies the backed up
@@ -122,10 +122,10 @@ do
     RESTORE_DIR="/var/lib/mysql/${DATABASE}"
 
     echo '#!/bin/sh' > $RESTORE_SCRIPT
-    echo 'mariadb -u root --password="${MARIADB_ROOT_PASSWORD}" < ./discard_tablespaces.sql' >> $RESTORE_SCRIPT
+    echo 'mariadb < ./discard_tablespaces.sql' >> $RESTORE_SCRIPT
     echo 'cp *.cfg *.frm *.ibd' $RESTORE_DIR >> $RESTORE_SCRIPT
     echo 'chown -R mysql:mysql' $RESTORE_DIR >> $RESTORE_SCRIPT
-    echo 'mariadb -u root --password="${MARIADB_ROOT_PASSWORD}" < ./import_tablespaces.sql' >> $RESTORE_SCRIPT
+    echo 'mariadb < ./import_tablespaces.sql' >> $RESTORE_SCRIPT
     chmod 755 $RESTORE_SCRIPT
 
   fi
