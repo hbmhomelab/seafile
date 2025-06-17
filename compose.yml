@@ -17,6 +17,8 @@ services:
       - MARIADB_AUTO_UPGRADE=1
       - MARIADB_BACKUP_DATABASES=ccnet_db seafile_db seahub_db
       - MARIADB_BACKUP_KEEP=${MARIADB_BACKUP_KEEP:-7}
+    ulimits:
+      memlock: 262144
     volumes:
       - seafile_db:/var/lib/mysql
       - ./backup:/backup

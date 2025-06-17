@@ -1,10 +1,9 @@
 #!/bin/bash
 
-set -x
-
 TIMESTAMP=`date '+%Y%m%dT%H%M'`
 BACKUP_DIR="/backup"
 TARGET_DIR="${BACKUP_DIR}/${TIMESTAMP}"
+BACKUP_LOG="${BACKUP_DIR}/backup-${TIMESTAMP}.log"
 
 # Check that we have the required information in the environment.
 
@@ -42,7 +41,7 @@ fi
 
 DATABASES=""
 
-if [ ${MARIADB_BACKUP_DATABASES:-all} -eq "all" ]
+if [ "${MARIADB_BACKUP_DATABASES:-all}" == "all" ]
 then
 
   # If all is specified in MARIADB_BACKUP_DATABASES or it is empty, backup
@@ -82,12 +81,13 @@ if [ -z ${DATABASES:+z} ]
 then
   echo "Warning: no non-empty databases found to backup"
 else
+  echo "Notice: backing up databases ${DATABASES} to ${TARGET_DIR}"
   mkdir $TARGET_DIR \
     && mariadb-backup -u root --password="${MARIADB_ROOT_PASSWORD}" --backup \
       --databases="${DATABASES}" \
-      --target-dir="${TARGET_DIR}" \
+      --target-dir="${TARGET_DIR}" &> $BACKUP_LOG \
     && mariadb-backup --prepare --export \
-      --target-dir="${TARGET_DIR}"
+      --target-dir="${TARGET_DIR}" &>> $BACKUP_LOG
 fi
 
 # Create a helper script for each schema that uses the transportable tablespaces
@@ -134,18 +134,26 @@ done
 # Check that MARIADB_BACKUP_KEEP is an integer.
 
 case "${MARIADB_BACKUP_KEEP}" in
-  ''|*[!0-9]*)
+
+  '') MARIADB_BACKUP_KEEP=0;;
+
+  *[!0-9]*)
     echo "Warning: MARIADB_BACKUP_KEEP should be an integer - setting to 0"
     MARIADB_BACKUP_KEEP=0
+ 
 esac
 
 # If MARIADB_BACKUP_KEEP is non-zero, ensure only that number of backups are kept.
 
 if [ $MARIADB_BACKUP_KEEP -gt 0 ]
 then
-  OLD_BACKUPS=$(ls -1t $BACKUP_DIR | tail -n "+$((++MARIADB_BACKUP_KEEP))" | xargs)
+  OLD_BACKUPS=$(ls -1t $BACKUP_DIR | grep -E '[0-9]+T[0-9]+$' | tail -n "+$((++MARIADB_BACKUP_KEEP))" | xargs)
   for OLD in $OLD_BACKUPS
   do
-    echo "Warning: removing old backup $OLD from $BACKUP_DIR"
+    echo "Warning: removing old backup ${OLD} from ${BACKUP_DIR}"
+    rm -rf "${BACKUP_DIR}/${OLD}"
+    rm -f "${BACKUP_DIR}/backup-${OLD}.log"
   done
+else
+  echo "Warning: all backups are being retained - check ${BACKUP_DIR}"
 fi
