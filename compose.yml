@@ -12,6 +12,7 @@ services:
         - uid=${MARIADB_BACKUP_UID:-1000}
         - gid=${MARIADB_BACKUP_GID:-1000}
         - cron=${MARIADB_BACKUP_CRON:-* * * 0 15}
+        - password=${MARIADB_ROOT_PASSWORD}
     environment:
       - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
       - MARIADB_AUTO_UPGRADE=1

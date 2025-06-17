@@ -4,10 +4,10 @@ FROM mariadb:$version
 ARG cron
 ARG uid
 ARG gid
-ENV MARIADB_ROOT_PASSWORD
+ARG password
 
 COPY my.cnf /root/.my.cnf
-RUN echo "password=${MARIADB_ROOT_PASSWORD}" >> /root/.my.cnf
+RUN echo "password=${password}" >> /root/.my.cnf
 RUN chmod 0400 /root/.my.cnf
 
 RUN groupadd -g $gid dbbackup
@@ -16,7 +16,7 @@ RUN mkdir /backup
 RUN chown dbbackup:dbbackup /backup
 
 COPY my.cnf /home/dbbackup/.my.cnf
-RUN echo "password=${MARIADB_ROOT_PASSWORD}" >> /home/dbbackup/.my.cnf
+RUN echo "password=${password}" >> /home/dbbackup/.my.cnf
 RUN chmod 0400 /home/dbbackup/.my.cnf
 RUN chown dbbackup:dbbackup /home/dbbackup/.my.cnf
 
