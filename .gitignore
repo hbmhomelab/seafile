@@ -17,6 +17,7 @@ tags
 
 ## Application
 .env
-backup/
-conf/
+backup/**
+!backup/README.md
+conf/**
 !conf/post-install.sh
