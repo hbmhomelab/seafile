@@ -4,6 +4,7 @@ FROM mariadb:$version
 ARG cron
 ARG uid
 ARG gid
+ENV MARIADB_ROOT_PASSWORD
 
 COPY my.cnf /root/.my.cnf
 RUN echo "password=${MARIADB_ROOT_PASSWORD}" >> /root/.my.cnf
