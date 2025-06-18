@@ -8,6 +8,10 @@ ARG backup
 ARG keep
 ARG password
 
+# Avoid io_uring issue.
+RUN echo "[mariadbd]" > /etc/mysql/mariadb.conf.d/51-server.cnf
+RUN echo "innodb_use_native_aio=OFF" >> /etc/mysql/mariadb.conf.d/51-server.cnf
+
 # Install cron and supervisor.
 RUN apt update -qq && apt install -qq -y --no-install-recommends cron supervisor
 
@@ -35,4 +39,4 @@ RUN crontab /root/mariadb-backup-cron
 COPY supervisord.conf /etc/supervisor/supervisord.conf
 
 # Run supervisor in the container, which will run and manage cron and mariadb.
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]

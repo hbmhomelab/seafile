@@ -1,8 +1,9 @@
 volumes:
 
+  db_data:
+  db_tmp:
+  app_data:
   tailscale_state:
-  seafile_db:
-  seafile_data:
 
 services:
 
@@ -24,8 +25,10 @@ services:
       - MARIADB_LOG_CONSOLE=true
       - MARIADB_AUTO_UPGRADE=1
     volumes:
-      - seafile_db:/var/lib/mysql
+      - db_data:/var/lib/mysql
+      - db_tmp:/tmp
       - ./backup:/backup
+      - /sys/fs/cgroup/memory.pressure:/sys/fs/cgroup/memory.pressure
     labels:
       - deunhealth.restart.on.unhealthy=true
     healthcheck:
@@ -53,7 +56,7 @@ services:
     network_mode: service:tailscale
     restart: on-failure
     volumes:
-      - seafile_data:/shared
+      - app_data:/shared
       - ./conf:/shared/seafile/conf
     environment:
       - DB_HOST=db
