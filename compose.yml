@@ -1,47 +1,57 @@
 volumes:
+
   tailscale_state:
   seafile_db:
   seafile_data:
 
 services:
+
   db:
+    image: hbmhomelab/mariadb:${MARIADB_VERSION:-latest}
     build:
       context: ./build/mariadb/
       args:
-        - version=$MARIADB_VERSION
-        - uid=$MARIADB_BACKUP_UID
-        - gid=$MARIADB_BACKUP_GID
-        - cron=$MARIADB_BACKUP_CRON
+        - backup=ccnet_db seafile_db seahub_db
         - password=${MARIADB_ROOT_PASSWORD}
+        - version=${MARIADB_VERSION:-latest}
+        - uid=${MARIADB_BACKUP_UID:-1000}
+        - gid=${MARIADB_BACKUP_GID:-1000}
+        - cron=${MARIADB_BACKUP_CRON:-15 0 * * *}
+        - keep=${MARIADB_BACKUP_KEEP:-7}
+    restart: on-failure
     environment:
       - MARIADB_ROOT_PASSWORD
+      - MARIADB_LOG_CONSOLE=true
       - MARIADB_AUTO_UPGRADE=1
-      - MARIADB_BACKUP_DATABASES=ccnet_db seafile_db seahub_db
-      - MARIADB_BACKUP_KEEP=${MARIADB_BACKUP_KEEP:-7}
-    ulimits:
-      memlock: 262144
     volumes:
       - seafile_db:/var/lib/mysql
       - ./backup:/backup
+    labels:
+      - deunhealth.restart.on.unhealthy=true
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MARIADB_ROOT_PASSWORD}"]
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-p${MARIADB_ROOT_PASSWORD}"]
       start_period: 120s
       interval: 10s
       timeout: 5s
       retries: 5
-    labels:
-      - deunhealth.restart.on.unhealthy=true
-    restart: unless-stopped
-  memcached:
-    image: memcached:1.6.18
-    entrypoint: memcached -m 256
     depends_on:
       tailscale:
         condition: service_healthy
-        restart: true
-    restart: unless-stopped
+
+  memcached:
+    image: memcached:1.6.18
+    entrypoint: memcached -m 256
+    restart: on-failure
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    depends_on:
+      tailscale:
+        condition: service_healthy
+
   seafile:
     image: seafileltd/seafile-mc:11.0-latest
+    network_mode: service:tailscale
+    restart: on-failure
     volumes:
       - seafile_data:/shared
       - ./conf:/shared/seafile/conf
@@ -61,6 +71,8 @@ services:
       - EMAIL_HOST_USER=${EMAIL_HOST_USER}
       - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+    labels:
+      - deunhealth.restart.on.unhealthy=true
     depends_on:
       memcached:
         condition: service_started
@@ -70,13 +82,11 @@ services:
       tailscale:
         condition: service_healthy
         restart: true
-    network_mode: service:tailscale
-    labels:
-      - deunhealth.restart.on.unhealthy=true
-    restart: unless-stopped
+
   tailscale:
     image: tailscale/tailscale:latest
     hostname: ${TAILSCALE_HOSTNAME}
+    restart: on-failure
     environment:
       - TS_EXTRA_ARGS=--advertise-tags=tag:container
       - TS_TAILSCALED_EXTRA_ARGS=--no-logs-no-support
@@ -86,21 +96,11 @@ services:
     volumes:
       - tailscale_state:/var/lib/tailscale
       - ./ts-serve.json:/config/ts-serve.json
+    labels:
+      - deunhealth.restart.on.unhealthy=true
     healthcheck:
       test: wget -q --tries=1 --spider http://127.0.0.1:9002/healthz || exit 1
       start_period: 120s
       interval: 10s
       timeout: 5s
       retries: 5
-    labels:
-      - deunhealth.restart.on.unhealthy=true
-    restart: unless-stopped
-  deunhealth:
-    image: qmcgaw/deunhealth
-    environment:
-      - LOG_LEVEL=info
-      - HEALTH_SERVER_ADDRESS=127.0.0.1:9999
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    network_mode: none
-    restart: always

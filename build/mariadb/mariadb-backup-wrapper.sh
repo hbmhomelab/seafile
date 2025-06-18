@@ -3,23 +3,8 @@
 TIMESTAMP=`date '+%Y%m%dT%H%M'`
 BACKUP_DIR="/backup"
 TARGET_DIR="${BACKUP_DIR}/${TIMESTAMP}"
-BACKUP_LOG="${BACKUP_DIR}/backup-${TIMESTAMP}.log"
 
-# Check that we have the required information in the environment.
-
-if [ -z ${MARIADB_ROOT_PASSWORD:+z} ]
-then
-  echo "Error: MARIADB_ROOT_PASSWORD not set in environment"
-  exit 1
-fi
-
-if [ -z ${MARIADB_BACKUP_DATABASES:+z} ]
-then
-  echo "Error: MARIADB_BACKUP_DATABASES not set in environment"
-  exit 1
-fi
-
-# Check that the root password works.
+# Check that the .my.cnf credentials work.
 
 mariadb-admin version &>/dev/null
 
@@ -41,21 +26,21 @@ fi
 
 DATABASES=""
 
-if [ "${MARIADB_BACKUP_DATABASES:-all}" == "all" ]
+if [ "${BACKUP:-all}" == "all" ]
 then
 
-  # If all is specified in MARIADB_BACKUP_DATABASES or it is empty, backup
-  # everything apart from the information and performance schema databases.
+  # If all is specified in BACKUP or it is empty, backup everything apart from
+  # the information and performance schema databases.
 
   DATABASES=$(mariadb -s -e \
     "SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN ('information_schema','performance_schema') GROUP BY TABLE_SCHEMA;" | xargs )
 
 else
 
-  # If specific databases are listed in MARIADB_BACKUP_DATABASES, check each
-  # listed database and only back them up if they exist and are not empty.
+  # If specific databases are listed in BACKUP, check each listed database and
+  # only back them up if they exist and are not empty.
 
-  for DATABASE in $MARIADB_BACKUP_DATABASES
+  for DATABASE in $BACKUP
   do
     EXISTS=$(mariadb -s -e \
       "SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_SCHEMA LIKE '${DATABASE}' GROUP BY 1" | xargs)
@@ -83,11 +68,9 @@ then
 else
   echo "Notice: backing up databases ${DATABASES} to ${TARGET_DIR}"
   mkdir $TARGET_DIR \
-    && mariadb-backup --backup \
-      --databases="${DATABASES}" \
-      --target-dir="${TARGET_DIR}" &> $BACKUP_LOG \
-    && mariadb-backup --prepare --export \
-      --target-dir="${TARGET_DIR}" &>> $BACKUP_LOG
+   && mariadb-backup --backup --databases="${DATABASES}" --target-dir=$TARGET_DIR \
+   && mariadb-backup --prepare --export --target-dir=$TARGET_DIR \
+   && chown -R mdbuser:mdbuser $TARGET_DIR
 fi
 
 # Create a helper script for each schema that uses the transportable tablespaces
@@ -131,23 +114,23 @@ do
   fi
 done
 
-# Check that MARIADB_BACKUP_KEEP is an integer.
+# Check that KEEP is an integer.
 
-case "${MARIADB_BACKUP_KEEP}" in
+case "${KEEP}" in
 
-  '') MARIADB_BACKUP_KEEP=0;;
+  '') KEEP=0;;
 
   *[!0-9]*)
-    echo "Warning: MARIADB_BACKUP_KEEP should be an integer - setting to 0"
-    MARIADB_BACKUP_KEEP=0
- 
+    echo "Warning: KEEP should be an integer - setting to 0"
+    KEEP=0
+
 esac
 
 # If MARIADB_BACKUP_KEEP is non-zero, ensure only that number of backups are kept.
 
-if [ $MARIADB_BACKUP_KEEP -gt 0 ]
+if [ $KEEP -gt 0 ]
 then
-  OLD_BACKUPS=$(ls -1t $BACKUP_DIR | grep -E '[0-9]+T[0-9]+$' | tail -n "+$((++MARIADB_BACKUP_KEEP))" | xargs)
+  OLD_BACKUPS=$(ls -1t $BACKUP_DIR | grep -E '[0-9]+T[0-9]+$' | tail -n "+$((++KEEP))" | xargs)
   for OLD in $OLD_BACKUPS
   do
     echo "Warning: removing old backup ${OLD} from ${BACKUP_DIR}"
