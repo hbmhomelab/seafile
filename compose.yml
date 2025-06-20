@@ -17,7 +17,7 @@ services:
         - version=${MARIADB_VERSION:-latest}
         - uid=${MARIADB_BACKUP_UID:-1000}
         - gid=${MARIADB_BACKUP_GID:-1000}
-        - cron=${MARIADB_BACKUP_CRON:-15 0 * * *}
+        - cron=${MARIADB_BACKUP_CRON_SCHEDULE:-15 0 * * *}
         - keep=${MARIADB_BACKUP_KEEP:-7}
     restart: on-failure
     environment:
@@ -51,29 +51,30 @@ services:
       tailscale:
         condition: service_healthy
 
-  seafile:
+  app:
     image: seafileltd/seafile-mc:11.0-latest
     network_mode: service:tailscale
     restart: on-failure
-    volumes:
-      - app_data:/shared
-      - ./conf:/shared/seafile/conf
     environment:
       - DB_HOST=db
+      - FORCE_HTTPS_IN_CONF=true
+      - SEAFILE_SERVER_LETSENCRYPT=false
+      - TIME_ZONE=${TZ}
       - DB_ROOT_PASSWD=${MARIADB_ROOT_PASSWORD}
-      - TIME_ZONE=Etc/UTC
       - SEAFILE_ADMIN_EMAIL=${SEAFILE_ADMIN_EMAIL}
       - SEAFILE_ADMIN_PASSWORD=${SEAFILE_ADMIN_PASSWORD}
-      - SEAFILE_SERVER_LETSENCRYPT=false
-      - FORCE_HTTPS_IN_CONF=true
       - SEAFILE_SERVER_HOSTNAME=${TAILSCALE_HOSTNAME}.${TAILSCALE_TAILNET}.ts.net
       - SITE_TITLE=${SEAFILE_SITE_TITLE}
-      - EMAIL_HOST=${EMAIL_HOST}
-      - EMAIL_PORT=${EMAIL_PORT}
-      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
-      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
-      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
-      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      - EMAIL_HOST=${SEAFILE_EMAIL_HOST}
+      - EMAIL_PORT=${SEAFILE_EMAIL_PORT}
+      - EMAIL_USE_TLS=${SEAFILE_EMAIL_USE_TLS}
+      - EMAIL_HOST_USER=${SEAFILE_EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${SEAFILE_EMAIL_HOST_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${SEAFILE_DEFAULT_FROM_EMAIL}
+    volumes:
+      - app_data:/shared
+      - ./config/seafile:/shared/seafile/conf
+      - ./storage:/shared/seafile/seafile-data/storage
     labels:
       - deunhealth.restart.on.unhealthy=true
     depends_on:
@@ -86,9 +87,29 @@ services:
         condition: service_healthy
         restart: true
 
+  pbs-client:
+    image: aterfax/pbs-client
+    restart: on-failure
+    network_mode: service:tailscale
+    environment:
+      - TZ=${TZ}
+      - PBS_ENDPOINT=${PBS_ENDPOINT}
+      - PBS_DATASTORE=${PBS_DATASTORE}
+      - PBS_API_KEY_NAME=${PBS_API_KEY_NAME}
+      - PBS_API_KEY_SECRET=${PBS_API_KEY_SECRET}
+      - PBS_ENCRYPTION_PASSWORD=${PBS_ENCRYPTION_PASSWORD}
+      - CRON_SCHEDULE=${PBS_CRON_SCHEDULE:15 1 * * *}
+    volumes:
+      - ./config/pbs-client:/root/.config/proxmox-backup/
+      - ./backup:/backups/db:ro
+      - ./storage:/backups/storage:ro
+    tmpfs:
+      - /tmp
+      - /run:exec
+
   tailscale:
     image: tailscale/tailscale:latest
-    hostname: ${TAILSCALE_HOSTNAME}
+    hostname: $TAILSCALE_HOSTNAME
     restart: on-failure
     environment:
       - TS_EXTRA_ARGS=--advertise-tags=tag:container
